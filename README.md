@@ -50,9 +50,10 @@ const parse = comb`
   paren -> ${ x => x[1] }
   
   expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
+  expTerm -> ${x => applyPrecedence(x)}
 
   exp = expTerm | paren | neg | number
-  exp -> ${x => evalResult(applyPrecedence(x))}
+  exp -> ${x => evalResult(x)}
 
   exp
 `
@@ -69,17 +70,13 @@ const operators = [
     ["+", "-"],
     ["*", "/"],
     ["^"],
-  ];
+  ].reduce( (acc, cur, i) => {
+    cur.forEach(op => acc[op] = i);
 
-const getPrecedence = (op) => {
-  let prec = -1;
+    return acc;
+  }, {});
 
-  operators.forEach((group, i) => {
-    if (group.includes(op)) prec = i;
-  })
-  
-  return prec;
-}
+const getPrecedence = (op) => operators[op];
 
 const applyPrecedence = exp => {
 
@@ -87,15 +84,13 @@ const applyPrecedence = exp => {
 
   const [ first, op, second ] = exp;
 
-  const result = (Array.isArray(second) && getPrecedence(op) > getPrecedence(second[1])) 
-    ? applyPrecedence([
-        [ first, op, second[0] ], 
+  return (Array.isArray(second) && getPrecedence(op) >= getPrecedence(second[1]))
+    ? [
+        applyPrecedence([ first, op, second[0] ]), 
         second[1], 
-        applyPrecedence(second[2])
-      ])
-    : [ first, op, applyPrecedence(second) ];
-  
-  return result;
+        second[2]
+      ]
+    : exp;
 }
 
 const evalResult = (node) => {
@@ -160,4 +155,104 @@ test option "?"
 
 lexer can be a function
 https://github.com/leomcelroy/haystack-morphogenesis/blob/main/wire-logo/parse.js
+
+```js
+import { comb } from "./comb.js";
+
+const skip = ["whitespace"];
+
+const rules = {
+  // literals
+  "(": "(",
+  ")": ")",
+  "-": "-",
+  "+": "+",
+  "/": "/",
+  "*": "*",
+  "^": "^",
+
+  // can take regex
+  number: /[0-9]+\.?[0-9]*/,
+  whitespace: /[^\S\r\n]+/,
+
+  // can also use array as value, will match any element
+  // ops: ["-", "+", "*", "/", "^"]
+}
+
+const parse = comb`
+  lexer ${ { rules, skip } }
+
+  number = 'number'
+  number -> ${ x => Number(x.value) }
+
+  neg = '-' 'number'
+  neg -> ${ x => -Number(x[1].value) }
+
+  op = '+' | '-' | '*' | '/' | '^'
+  op -> ${ x => x.value }
+  
+  paren = '(' ( exp | paren | neg | number ) ')'
+  paren -> ${ x => x[1] }
+  
+  expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
+
+  exp = expTerm | paren | neg | number
+  exp -> ${x => evalResult(applyPrecedence(x))}
+
+  exp
+`
+
+const funcs = {
+  "*": (x, y) => x*y,
+  "/": (x, y) => x/y,
+  "+": (x, y) => x+y,
+  "-": (x, y) => x-y,
+  "^": (x, y) => x**y
+}
+
+const operators = [
+    ["+", "-"],
+    ["*", "/"],
+    ["^"],
+  ];
+
+const getPrecedence = (op) => {
+  let prec = -1;
+
+  operators.forEach((group, i) => {
+    if (group.includes(op)) prec = i;
+  })
+  
+  return prec;
+}
+
+const applyPrecedence = exp => {
+
+  if (!Array.isArray(exp)) return exp;
+
+  const [ first, op, second ] = exp;
+
+  const result = (Array.isArray(second) && getPrecedence(op) > getPrecedence(second[1])) 
+    ? applyPrecedence([
+        [ first, op, second[0] ], 
+        second[1], 
+        applyPrecedence(second[2])
+      ])
+    : [ first, op, applyPrecedence(second) ];
+  
+  return result;
+}
+
+const evalResult = (node) => {
+  if (typeof node === "number") return node;
+  else {
+    const [ left, op, right ] = node;
+    return funcs[op](evalResult(left), evalResult(right));
+  }
+};
+
+const result = parse("2^2 * (3 - 1) - 2^2");
+
+console.log(result); // 4
+```
  -->
