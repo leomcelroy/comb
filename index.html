@@ -108,13 +108,11 @@
   const parse = comb`
     lexer ${ { rules, skip } }
 
-    
     number = 'number'
     number -> ${ x => Number(x.value) }
 
     op = '+' | '-' | '*' | '/' | '^'
     op -> ${ x => x.value }
-
     
     paren = '(' ( exp | paren | number ) ')'
     paren -> ${ x => x[1] }
@@ -127,8 +125,8 @@
     exp
   `
 
-  const result = parse("2^2 * (3 - 1) - 2^2");
+const result = parse("3^2*(9-3)/3");
 
-  console.log(result);
+console.log(result); // 18
 
 </script>

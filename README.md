@@ -56,7 +56,13 @@ const getPrecedence = (op) => {
   return prec;
 }
 
-const evalResult = ([first, op, second]) => funcs[op](first, second);
+const evalResult = (node) => {
+  if (typeof node === "number") return node;
+  else {
+    const [ left, op, right ] = node;
+    return funcs[op](evalResult(left), evalResult(right));
+  }
+};
 
 const applyPrecedence = exp => {
 
@@ -65,40 +71,39 @@ const applyPrecedence = exp => {
   const [ first, op, second ] = exp;
 
   const result = (Array.isArray(second) && getPrecedence(op) > getPrecedence(second[1])) 
-    ? [
-        evalResult([ first, op, second[0] ]), 
+    ? applyPrecedence([
+        [ first, op, second[0] ], 
         second[1], 
         applyPrecedence(second[2])
-      ]
+      ])
     : [ first, op, applyPrecedence(second) ];
   
-  return evalResult(result);
+  return result;
 }
 
 const parse = comb`
   lexer ${ { rules, skip } }
-  
+
   number = 'number'
   number -> ${ x => Number(x.value) }
 
   op = '+' | '-' | '*' | '/' | '^'
   op -> ${ x => x.value }
-
   
-  paren = '(' exp ')'
+  paren = '(' ( exp | paren | number ) ')'
   paren -> ${ x => x[1] }
   
   expTerm = ( number | paren ) op ( expTerm | paren | number )
 
-  exp = expTerm
-  exp -> ${applyPrecedence}
+  exp = expTerm | paren | number
+  exp -> ${x => evalResult(applyPrecedence(x))}
 
-  body = exp | paren | number
+  exp
 `
 
-const result = parse("3^2*(9-3)/3");
+const result = parse("2^2 * (3 - 1) - 2^2");
 
-console.log(result); // 18
+console.log(result); // 4
 
 ```
 
