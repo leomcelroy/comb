@@ -116,9 +116,11 @@ Let's take a closer look at how this program works.
 
 ### Lexer
 
-The lexer can take rules for tokenizing the program and a list of what tokens to skip.
+The lexer can take rules for tokenizing the program and an array of what tokens to skip.
 
 These rules can be `String`, `RegEx`, or `Array`.
+
+You can also pass a function to lexer which takes a string and returns an array of tokens.
 
 ### Terms
 
@@ -149,3 +151,13 @@ The return value of the transform will be returned when parsed instead of the de
 ### Result
 
 The last line in the `comb` program is returned.
+
+
+<!-- 
+any "." seems broken
+
+test option "?"
+
+lexer can be a function
+https://github.com/leomcelroy/haystack-morphogenesis/blob/main/wire-logo/parse.js
+ -->
