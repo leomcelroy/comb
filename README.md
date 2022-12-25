@@ -87,15 +87,18 @@ const parse = comb`
   number = 'number'
   number -> ${ x => Number(x.value) }
 
+  neg = '-' 'number'
+  neg -> ${ x => -Number(x[1].value) }
+
   op = '+' | '-' | '*' | '/' | '^'
   op -> ${ x => x.value }
   
-  paren = '(' ( exp | paren | number ) ')'
+  paren = '(' ( exp | paren | neg | number ) ')'
   paren -> ${ x => x[1] }
   
-  expTerm = ( number | paren ) op ( expTerm | paren | number )
+  expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
 
-  exp = expTerm | paren | number
+  exp = expTerm | paren | neg | number
   exp -> ${x => evalResult(applyPrecedence(x))}
 
   exp
