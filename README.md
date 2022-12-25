@@ -1,6 +1,8 @@
 # comb 
 ## is a tiny language for writing parsers in javascript
 
+![image](https://user-images.githubusercontent.com/27078897/209457424-129db7e2-5653-47df-abd1-0141e24612f4.png)
+
 comb programs are written like parsing expression grammers in a tagged template literal
 
 ### Example
