@@ -34,6 +34,29 @@ const rules = {
   // ops: ["-", "+", "*", "/", "^"]
 }
 
+const parse = comb`
+  lexer ${ { rules, skip } }
+
+  number = 'number'
+  number -> ${ x => Number(x.value) }
+
+  neg = '-' 'number'
+  neg -> ${ x => -Number(x[1].value) }
+
+  op = '+' | '-' | '*' | '/' | '^'
+  op -> ${ x => x.value }
+  
+  paren = '(' ( exp | paren | neg | number ) ')'
+  paren -> ${ x => x[1] }
+  
+  expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
+
+  exp = expTerm | paren | neg | number
+  exp -> ${x => evalResult(applyPrecedence(x))}
+
+  exp
+`
+
 const funcs = {
   "*": (x, y) => x*y,
   "/": (x, y) => x/y,
@@ -82,29 +105,6 @@ const evalResult = (node) => {
     return funcs[op](evalResult(left), evalResult(right));
   }
 };
-
-const parse = comb`
-  lexer ${ { rules, skip } }
-
-  number = 'number'
-  number -> ${ x => Number(x.value) }
-
-  neg = '-' 'number'
-  neg -> ${ x => -Number(x[1].value) }
-
-  op = '+' | '-' | '*' | '/' | '^'
-  op -> ${ x => x.value }
-  
-  paren = '(' ( exp | paren | neg | number ) ')'
-  paren -> ${ x => x[1] }
-  
-  expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
-
-  exp = expTerm | paren | neg | number
-  exp -> ${x => evalResult(applyPrecedence(x))}
-
-  exp
-`
 
 const result = parse("2^2 * (3 - 1) - 2^2");
 
