@@ -77,7 +77,6 @@ const applyPrecedence = exp => {
 
 const parse = comb`
   lexer ${ { rules, skip } }
-
   
   number = 'number'
   number -> ${ x => Number(x.value) }
