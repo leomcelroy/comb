@@ -3,13 +3,13 @@
 
 <img src="https://user-images.githubusercontent.com/27078897/209457424-129db7e2-5653-47df-abd1-0141e24612f4.png" width="100px"/>
 
-`comb` allows you to write parsers in a tagged template literal which can call JavaScript functions that process your tree as you generate it. It's built using [parser combinators](https://en.wikipedia.org/wiki/Parser_combinator). The comb language parser itself uses the same underlying parser combinator functions which are used to parse languages who's grammers are written in comb. Yeah for recursion!
+`comb` allows you to write parsers in a tagged template literal which can call JavaScript functions that process your tree as you generate it. It's built using [parser combinators](https://en.wikipedia.org/wiki/Parser_combinator). The `comb` language parser itself uses the same underlying parser combinator functions which are used to parse languages whose grammers are written in `comb`. Yeah for recursion!
 
  `comb` is <4kb minified.
 
 ### Example
 
-Here is a comb program for some simple arithmetic. The program is parsed and evaluated in a single pass.
+Here is a `comb` program for some simple arithmetic. The program is parsed and evaluated in a single pass.
 
 ```js
 import { comb } from "./comb.js";
