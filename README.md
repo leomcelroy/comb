@@ -3,7 +3,7 @@
 
 <img src="https://user-images.githubusercontent.com/27078897/209457424-129db7e2-5653-47df-abd1-0141e24612f4.png" width="100px"/>
 
-comb programs are written like parsing expression grammers in a tagged template literal
+`comb` allows you to write parsers in a tagged template literal which can call JavaScript functions that process your tree as you generate it. It's built using [parser combinators](https://en.wikipedia.org/wiki/Parser_combinator). The comb language parser itself uses the same underlying parser combinator functions which are used to parse languages who's grammers are written in comb. Yeah for recursion!
 
 ### Example
 
