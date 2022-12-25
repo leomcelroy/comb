@@ -49,10 +49,10 @@ const parse = comb`
   paren = '(' ( exp | paren | neg | number ) ')'
   paren -> ${ x => x[1] }
   
-  expTerm = ( number | neg | paren ) op ( expTerm | paren | neg | number )
-  expTerm -> ${x => applyPrecedence(x)}
+  binary = ( number | neg | paren ) op ( binary | paren | neg | number )
+  binary -> ${x => applyPrecedence(x)}
 
-  exp = expTerm | paren | neg | number
+  exp = binary | paren | neg | number
   exp -> ${x => evalResult(x)}
 
   exp
