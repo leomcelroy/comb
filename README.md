@@ -58,14 +58,6 @@ const getPrecedence = (op) => {
   return prec;
 }
 
-const evalResult = (node) => {
-  if (typeof node === "number") return node;
-  else {
-    const [ left, op, right ] = node;
-    return funcs[op](evalResult(left), evalResult(right));
-  }
-};
-
 const applyPrecedence = exp => {
 
   if (!Array.isArray(exp)) return exp;
@@ -82,6 +74,14 @@ const applyPrecedence = exp => {
   
   return result;
 }
+
+const evalResult = (node) => {
+  if (typeof node === "number") return node;
+  else {
+    const [ left, op, right ] = node;
+    return funcs[op](evalResult(left), evalResult(right));
+  }
+};
 
 const parse = comb`
   lexer ${ { rules, skip } }
