@@ -1,0 +1,124 @@
+<script type="module">
+  import { comb } from "./comb.js";
+
+  const skip = ["whitespace"];
+
+  const rules = {
+    // literals
+    "(": "(",
+    ")": ")",
+    "-": "-",
+    "+": "+",
+    "/": "/",
+    "*": "*",
+    "^": "^",
+
+    // can take regex
+    number: /-?[0-9]+\.?[0-9]*/,
+    whitespace: /[^\S\r\n]+/,
+
+    // also accepts a test function
+    // letters: ["a", "b", "c"]
+    // token: (char) => char === "a"
+
+  }
+
+  /*
+
+  supports
+
+  transformers
+
+  number -> ${ function }
+  number = 'token'
+
+  exp = 
+
+  *
+  +
+  ?
+
+  each term returns
+  {
+    type,
+    value,
+    index
+  }
+
+  transformer ->
+  term = ( 'a' )
+
+  last value is returned
+
+  */
+
+  const funcs = {
+    "*": (x, y) => x*y,
+    "/": (x, y) => x/y,
+    "+": (x, y) => x+y,
+    "-": (x, y) => x-y,
+    "^": (x, y) => x**y
+  }
+
+  const operators = [
+      ["+", "-"],
+      ["*", "/"],
+      ["^"],
+    ];
+
+  const getPrecedence = (op) => {
+    let prec = -1;
+
+    operators.forEach((group, i) => {
+      if (group.includes(op)) prec = i;
+    })
+    
+    return prec;
+  }
+
+  const evalResult = ([first, op, second]) => funcs[op](first, second);
+
+  const applyPrecedence = exp => {
+
+    if (!Array.isArray(exp)) return exp;
+
+    const [ first, op, second ] = exp;
+
+    const result = (Array.isArray(second) && getPrecedence(op) > getPrecedence(second[1])) 
+      ? [
+          evalResult([ first, op, second[0] ]), 
+          second[1], 
+          applyPrecedence(second[2])
+        ]
+      : [ first, op, applyPrecedence(second) ];
+    
+    return evalResult(result);
+  }
+
+  const parse = comb`
+    lexer ${ { rules, skip } }
+
+    
+    number = 'number'
+    number -> ${ x => Number(x.value) }
+
+    op = '+' | '-' | '*' | '/' | '^'
+    op -> ${ x => x.value }
+
+    
+    paren = '(' exp ')'
+    paren -> ${ x => x[1] }
+    
+    expTerm = ( number | paren ) op ( expTerm | paren | number )
+
+    exp = expTerm
+    exp -> ${applyPrecedence}
+
+    body = exp | paren | number
+  `
+
+  const result = parse("3^2*(9-3)/3");
+
+  console.log(result);
+
+</script>
