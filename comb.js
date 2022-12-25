@@ -1,9 +1,4 @@
-// const oneOf = item => w => w.startsWith(item);
-// const anyOf = arr => w => arr.some(oneOf(w));
-
-
 // token types that match skip are skipped
-// token values that match literals have the token type set to value
 const makeLexer = ({ rules = {}, skip = [] } = { }) => string => { 
   let index = 0;
 
@@ -11,11 +6,8 @@ const makeLexer = ({ rules = {}, skip = [] } = { }) => string => {
   // let col = 0;
 
   const peek = () => string[index];
-  // const next = () => string[index++];
-  const tokens = [];
 
-  // should I add literals to token rules automatically
-  // if (literals.length > 0) rules[Date.now()] = literals;
+  const tokens = [];
 
   while (index < string.length) {
     let type, value;
