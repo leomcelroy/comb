@@ -38,16 +38,16 @@ const parse = comb`
   lexer ${ { rules, skip } }
 
   number = 'number'
-  number -> ${ x => Number(x.value) }
+  number -> ${x => Number(x.value)}
 
   neg = '-' 'number'
-  neg -> ${ x => -Number(x[1].value) }
+  neg -> ${x => -Number(x[1].value)}
 
   op = '+' | '-' | '*' | '/' | '^'
-  op -> ${ x => x.value }
+  op -> ${x => x.value}
   
   paren = '(' ( exp | paren | neg | number ) ')'
-  paren -> ${ x => x[1] }
+  paren -> ${x => x[1]}
   
   binary = ( number | neg | paren ) op ( binary | paren | neg | number )
   binary -> ${x => applyPrecedence(x)}
