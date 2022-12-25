@@ -202,7 +202,7 @@ const comb = (strs, ...vals) => {
   })
 
   const skip = ["ws"];
-  const literals = ["->", "=", "|", "*", "+", "?", "(", ")", ".", "lexer"]
+  const literals = ["->", "=", "|", "*", "+", "?", "(", ")", "lexer"]
     .reduce((acc, cur) => {
       acc[cur] = cur;
 
@@ -225,7 +225,7 @@ const comb = (strs, ...vals) => {
   const token = or(["token"], x => ({ type: "token", value: x.value.slice(1, -1), index: x.index}))
 
   const andClause = s => plus(and([
-    or([paren, "symbol", token, "."]),
+    or([paren, "symbol", token]),
     opt(or(["*", "+", "?"])),
   ], x => x[1] ? [x[1].value, x[0]] : x[0]), x => x.length > 1 ? ["and", ...x] : x[0])(s);
 
@@ -317,8 +317,6 @@ const comb = (strs, ...vals) => {
       return (s) => $stored[name](s);
     } else if (node.type === "token") {
       return convert(node.value);
-    } else if (node.type === ".") {
-      return any;
     } else if (node.type === "lexer") {
       let val = refs[node.value.value];
       if (typeof val === "object") val = makeLexer(val);
