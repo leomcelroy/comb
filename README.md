@@ -25,7 +25,7 @@ const rules = {
   "^": "^",
 
   // can take regex
-  number: /-?[0-9]+\.?[0-9]*/,
+  number: /[0-9]+\.?[0-9]*/,
   whitespace: /[^\S\r\n]+/,
 
   // can also use array as value, will match any element
