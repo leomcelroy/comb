@@ -351,9 +351,20 @@ const comb = (strs, ...vals) => {
     const gp = generatedParser.at(-1);
 
     // console.log({$stored, generatedToks, gp});
+    const gpResult = gp(generatedToks);
+
+    if (!Array.isArray(gpResult)) {
+      console.error("The remainder is:", generatedToks);
+
+      throw new Error("Parsing Failed.");
+    }
+
     const [ast, remainder] = gp(generatedToks);
 
-    if (remainder.length > 0) console.error("Parsing failed. The remainder is:", remainder);
+    if (remainder.length > 0) {
+      console.error("The remainder is:", remainder);
+      throw new Error("Parsing Failed.");
+    }
 
     return ast;
   }
