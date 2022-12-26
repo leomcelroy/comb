@@ -115,7 +115,7 @@ The lexer can take rules for tokenizing the program and an array of what tokens 
 
 These rules can be `String`, `RegEx`, or `Array`.
 
-You can also pass a function to lexer which takes a string and returns an array of lexems/tokens.
+You can also pass a function to lexer which takes a string and returns an array of lexemes/tokens.
 
 ### Rules
 
