@@ -115,11 +115,11 @@ The lexer can take rules for tokenizing the program and an array of what tokens 
 
 These rules can be `String`, `RegEx`, or `Array`.
 
-You can also pass a function to lexer which takes a string and returns an array of tokens.
+You can also pass a function to lexer which takes a string and returns an array of lexems/tokens.
 
-### Terms
+### Rules
 
-Terms are defined with an `=`. Adjacent terms are "and" and `|` is "or".
+Rules are defined with an `=`. Adjacent terms are "and" and `|` is "or".
 
 There are three modifiers:
 
