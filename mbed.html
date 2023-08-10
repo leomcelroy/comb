@@ -131,7 +131,7 @@ const parse = comb`
   objectType = '{' (fieldDefinition ',')* fieldDefinition? '}'
   fieldDefinition = 'id' ':' typeDefinition
 
-  function = 'fn' 'id' '(' parameters ')' ':' typeDefinition '{' (statement | returnStatement)* '}'
+  function = 'fn' 'id' '(' parameters ')' ':' typeDefinition block
   parameters = (parameter ',')* parameter?
   parameter = 'id' ':' typeDefinition
 
@@ -142,12 +142,11 @@ const parse = comb`
     | expression
     | 'continue'
     | 'break'
-
-  returnStatement = 'return' expression?
+    | ('return' expression?)
   
-  ifStatement = 'if' expression '{' statement* '}' ( 'else' 'if' expression '{' statement* '}')* ( 'else' '{' statement* '}')?
+  ifStatement = 'if' expression block ( 'else' 'if' expression block)* ( 'else' block)?
 
-  forStatement = 'for' ('id' 'in' expression)? '{' statement* '}'
+  forStatement = 'for' ('id' 'in' expression)? block
 
   call = 'id' '(' (expression ',')* expression? ')'
 
@@ -172,8 +171,18 @@ const parse = comb`
 
   array = '[' (expression ',')* expression? ']'
 
+  block = '{' statement* '}'
+  block -> ${
+    (x)=>{
+      return {
+        tag:'block',
+        value:x[1],
+      }
+    }
+  }
 
   partialExp = declare 
+    | block
     | call 
     | literal
     | ternary
@@ -327,7 +336,6 @@ function inferTypes(tree,context=[[]]){
   }
 
   function infer(x){
-    console.log(',,,',x);
     if (x.type) return x.type;
     if (x.tag == 'binop'){
       let a = infer(x.value[0]);
@@ -346,24 +354,44 @@ function inferTypes(tree,context=[[]]){
       }
     }
   }
-  for (let i = 0; i < tree.length; i++){
-    if (tree[i].type == null){
-      if (tree[i].tag == 'declare'){
-        console.log(tree[i])
-        tree[i].type = infer(tree[i].value[0]);
-        context[0][tree[i].key] = tree[i].type;
+  function inferOne(q){
+    if (q.type == null){
+      if (q.tag == 'declare'){
+        q.type = infer(q.value[0]);
+        context[0][q.key] = q.type;
       }
     }
-    for (let j = 0; j < tree[i].value.length; j++){
-      inferTypes(tree[i].value[j],context);
+    if (q.tag == 'block'){
+      context.unshift([]);
+      for (let j = 0; j < q.value.length; j++){
+        inferTypes(q.value[j],context);
+      }
+      context.shift();
+    }else if (q.tag != 'atom'){
+      for (let j = 0; j < q.value.length; j++){
+        inferTypes(q.value[j],context);
+      }
     }
+  }
+
+  if (!Array.isArray(tree)){
+    return inferOne(tree);
+  }
+  for (let i = 0; i < tree.length; i++){
+    inferOne(tree[i]);
   }
 }
 
 const testSimple = `
 x := 3
 y := 4
-z := x + y + "hi"
+s := "hello"
+t := 6
+4+9
+{
+  z := x + y
+  t = "world "+s
+}
 `
 
 console.time("tok")
@@ -373,7 +401,6 @@ console.timeEnd("tok")
 console.time("parse")
 const result = parse(testSimple);
 console.timeEnd("parse")
-
 
 
 
