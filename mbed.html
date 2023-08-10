@@ -20,15 +20,20 @@ const rules = {
   "for": "for",
   "in": "in",
   "fn": "fn",
+  "break": "break",
+  "continue": "continue",
   // "do": "do",
-  "enum": "enum",
-  "const": "const",
+
+  // "enum": "enum",
+  // "const": "const",
+
   "return": "return",
   "type": "type",
-  "import": "import",
-  ";": ";",
+  "include": "include",
+  // ";": ";",
   "=": "=",
   ":": ":",
+  // "?": "?",
   binaryOperator: ['*', '/', '==', '!=', '+', '-', '<', '<=', '>', '>=', '<<', '>>', "|", "&", "%", "+=", "-=", "&&", "||"],
   unaryOperator: ['+', '-', '!'],
   number: /\d+(\.\d+)?/,
@@ -62,12 +67,28 @@ const rules = {
 const parse = comb`
   lexer ${ { rules, skip } }
 
-  import = 'import' 'string'
+  include = 'include' 'string'
 
-  declare = 'const'? 'id' ':' typeDefinition? '=' expression
+  declare = 'id' ':' typeDefinition? '=' expression
+  declare -> ${x => {
+    const [ id, colon, typeDefinition, equals, expression ] = x;
+    let line = "";
+
+    // check if all caps then make it a constant
+    const constant = false;
+    if (constant) line += "const";
+
+    // if no type definition then infer
+    if (typeDefinition) line += typeDefinition;
+
+    line += id.value;
+    line += " = ";
+    line += expression;
+
+    return line;
+  }}
+
   assign = 'id' '=' expression
-
-  enum = 'enum' 'id' '=' '{' ('id' ',')*  'id'? '}'
 
   type = 'type' 'id' '=' typeDefinition
 
@@ -84,28 +105,53 @@ const parse = comb`
   parameter = 'id' ':' typeDefinition
 
   statement = type 
-    | enum 
     | function 
     | forStatement
     | ifStatement 
     | expression
+    | 'continue'
+    | 'break'
 
-  returnStatement = 'return' expression
+  returnStatement = 'return' expression?
   
   ifStatement = 'if' expression '{' statement* '}' ( 'else' 'if' expression '{' statement* '}')* ( 'else' '{' statement* '}')?
 
-  forStatement = 'for' 'id' 'in' expression '{' statement* '}'
-  // forStatement = 'for' (iteratorCount | inLoop) '{' statement* '}'
-  // iteratorCount = expression? ';' expression? ';' expression?
-  // inLoop = 'id' 'in' expression
+  forStatement = 'for' ('id' 'in' expression)? '{' statement* '}'
+  forStatement -> ${ x => {
+    if (x[1]) {
+      // need to get size of array
+      // const uuid = `variable_${Date.now()}`;
+      // return `for (int ${uuid} = 0; ${uuid} < (${x[1][2]}))`
+    } else {
+      return `while (true) {\n${x[3].map(x => `  ${x};\n`).join("")}}`
+    }
+
+  }}
 
   call = 'id' '(' (expression ',')* expression? ')'
+  call -> ${x => {
+    const [id, _0, args, opLastArg] = x;
+    return `${id.value}(${args.map(x => x[0]).join(", ")}${opLastArg ? `, ${opLastArg}` : ""})`
+  }}
 
   literal = 'number' | 'string' | 'boolean' | 'id'
+  literal -> ${x => {
+    if (x.type === "boolean" && x.value === "true") return "1";
+    if (x.type === "boolean" && x.value === "false") return "0"; 
+
+    return x.value
+  }}
 
   ternary = 'if' expression 'then' expression 'else' expression
+  ternary -> ${x => {
+    return `((${x[1]}) ? (${x[3]}) : (${x[5]}))`
+  }}
 
   array = '[' (expression ',')* expression? ']'
+  array -> ${x => {
+    const [_0, values, opLastValue] = x;
+    return `{ ${values.map(x => x[0]).join(", ")}${opLastValue ? `, ${opLastValue}` : ""} }`
+  }}
 
   partialExp = assign 
     | declare 
@@ -119,11 +165,11 @@ const parse = comb`
 
   expression = biOp | ('(' expression ')') | partialExp
 
-  import* statement*
+  include* statement*
 `
 
 const example = String.raw`
-import "Servo.h"
+include "Servo.h"
 
 const SPU = 400
 const PIN_SERVO = 3
@@ -132,7 +178,6 @@ test = 1
 
 test = ["a", "b", "c"]
 
-enum color = { RED, BLUE, GREEN }
 
 type option = "c" | "d"
 
@@ -144,27 +189,48 @@ type car = {
 }
 
 fn add(x: int, y: int): int {
+  for {
+    if x < 10 { break }
+    else { 
+      x += 1 
+      continue
+    }
+  }
+
   return x+y
+}
+
+for {
+  if x < 10 { break }
+  else { 
+    x += 1 
+    continue
+  }
+}
+
+for {
+  if x < 10 { break }
+  else { 
+    x += 1 
+    continue
+  }
 }
 `
 
 const tokenizer = makeLexer({ rules, skip });
 
 const test = String.raw`
-import "servo.h"
+include "servo.h"
 
-const SPU: int = 400
-const PIN_SERVO = 3
+SPU :int = 400
+PIN_SERVO := 3
 
 test = 1
-
-enum color = { RED, GREEN, BLUE }
 
 type arr = orange[3]
 
 type house = {
-  door: "number",
-  color: color.RED | orange
+  door: "number"
 }
 
 if x < 89 {
@@ -187,20 +253,14 @@ for x in 32 {
 
 5 - 9 + 7
 
-for i = 0; i < 10; i = i+1 {
-
-}
-
 fn add(x: number, y: number): number { }
 
-const SPU = 400
-const PIN_SERVO = 3
+SPU := 400
+PIN_SERVO := 3
 
-test = 1
+test := 1
 
 test = ["a", "b", "c"]
-
-enum color = { RED, BLUE, GREEN }
 
 type option = "c" | "d"
 
@@ -213,21 +273,52 @@ type car = {
 
 
 fn add(x: int, y: int): int {
+
+  for {
+    if x < 10 { break }
+    else { 
+      x += 1 
+      continue
+    }
+  }
+
   return x+y
 }
 `
 
+const testSimple = `
+
+3
+true
+a
+"test string"
+
+
+if true then 4 else 65
+
+
+a := "cars"
+
+call(3, "cas")
+
+[ 4, 5, 6 ]
+
+for {
+  3
+}
+`
+
 console.time("tok")
-const toks = tokenizer(test);
+const toks = tokenizer(testSimple);
 console.timeEnd("tok")
 
 console.time("parse")
-const result = parse(test);
+const result = parse(testSimple);
 console.timeEnd("parse")
 
 
 console.log(toks);
 
-console.log(result); // 4
+console.log(result[1].map(line => line + ";\n").join("")); // 4
 
 </script>
