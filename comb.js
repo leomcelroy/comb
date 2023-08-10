@@ -1,76 +1,4 @@
-// token types that match skip are skipped
-const makeLexer = ({ rules = {}, skip = [] } = { }) => string => { 
-  let index = 0;
-
-  // let line = 0;
-  // let col = 0;
-
-  const peek = () => string[index];
-
-  const tokens = [];
-
-  while (index < string.length) {
-    let type, value;
-
-    for (const key in rules) {
-      type = key;
-      value = null;
-      let rule = rules[key];
-
-      if (rule instanceof RegExp) {
-        let tempValue = string.slice(index).match(rule);
-
-        if (tempValue !== null && tempValue.index === 0) {
-          value = tempValue[0];        
-          break;
-        }
-      } else if (typeof rule === "function") {
-        if (rule(peek())) {
-          let i = index;
-          value = string[i]
-          while (rule(value)) {
-            if(rule(value + string[i + 1])) value += string[++i];
-            else break;
-          }
-          break;
-        }
-      } else if (Array.isArray(rule)) { // should I allow regex and functions too
-        let match = false;
-        for (let i = 0; i < rule.length; i++) {
-          if (typeof rule[i] !== "string") console.error("makeLexer only accepts arrays of strings.");
-          if (string.slice(index).startsWith(rule[i])) {
-            value = rule[i];
-            match = true;
-          }
-        }
-
-        if (match) break;
-      } else if (typeof rule === "string") {
-        if (string.slice(index).startsWith(rule)) {
-          value = rule;
-          break;
-        }
-      }
-    }
-
-    if (value === undefined || value === null) {
-      const section = string.slice(0, index+1);
-      const lines = section.split("\n");
-      const line = lines.length;
-      const col = lines.at(-1).indexOf(peek());
-
-      throw `Unknown character: ${peek()}\nAt index: ${index}\nLine: ${line}\nCol: ${col}`;
-    }
-    // if (literals.includes(value)) type = value;
-    if (!skip.includes(type)) tokens.push({ type, value, index });
-    index += value.length;
-
-  }
-
-  return tokens;
-}
-
-//////////////////////////////
+import { makeLexer } from "./makeLexer.js";
 
 const convert = pred => s => {
   return s[0] && (s[0].type === pred)
@@ -201,7 +129,7 @@ const comb = (strs, ...vals) => {
     } 
   })
 
-  const skip = ["ws"];
+  const skip = ["ws", "comment"];
   const literals = ["->", "=", "|", "*", "+", "?", "(", ")", "lexer"]
     .reduce((acc, cur) => {
       acc[cur] = cur;
@@ -210,15 +138,16 @@ const comb = (strs, ...vals) => {
     }, {});
 
   const tokenRules = {
-    ...literals,
     ws: /[^\S\r\n]+/,
     newline: /\n+/,
     func: /\$f[0-9]+/,
     symbol: /[a-zA-Z_]+/,
+    comment: /\/\/.*\n/,
     token: /'.*?'/,
+    ...literals,
   }
 
-  const tokenize = makeLexer({ rules: tokenRules, skip })
+  const tokenize = makeLexer({ rules: tokenRules, skip });
 
   const toks = tokenize(result);
 
@@ -251,7 +180,7 @@ const comb = (strs, ...vals) => {
 
   const statement = s => or([ production, transformation, lexer, orClause, andClause ])(s);
 
-  const parse = star(or([statement, "newline"]), x => x.filter(x => x.type !== "newline"));
+  const parse = star(or([statement, "newline"]), x => x.filter(x => !["newline", "comment"].includes(x.type)));
 
   // check that last line is or or and
 
