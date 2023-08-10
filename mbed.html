@@ -3,6 +3,50 @@ import { comb, makeLexer } from "./comb.js";
 
 const skip = [ "whitespace", "comment" ];
 
+
+const operatorList = [
+    ['+=','-=','*=','/=','%=','>>=','<<=','&=','|=','^=','='],
+    ["||"],
+    ["&&"],
+    ["|"],
+    ["^"],
+    ["&"],
+    ['==','!='],
+    ['<','>','<=','>='],
+    ['<<','>>'],
+    ['+','-'],
+    ['*','%','/'],
+  ];
+
+const operators = operatorList.reduce( (acc, cur, i) => {
+    cur.forEach(op => acc[op] = i);
+
+    return acc;
+  }, {});
+
+const getPrecedence = (op) => operators[op];
+
+const applyPrecedence = exp => {
+
+  if (!Array.op){
+    return exp;
+  }
+  const { op, value } = exp;
+  [first,second] = value;
+
+  return (Array.isArray(second) && getPrecedence(op) >= getPrecedence(second[1]))
+    ? {
+        tag:'binop',
+        op:second[1], 
+        value:[
+          applyPrecedence([ op, first, second[0] ]), 
+          second[2]
+        ]
+      }
+    : exp;
+}
+
+
 const rules = {
   "[": "[",
   "]": "]",
@@ -17,7 +61,7 @@ const rules = {
   "if": "if",
   // "elif": "elif",
   "else": "else",
-  "for": "for",
+  "for": "for", 
   "in": "in",
   "fn": "fn",
   "break": "break",
@@ -34,7 +78,7 @@ const rules = {
   "=": "=",
   ":": ":",
   // "?": "?",
-  binaryOperator: ['*', '/', '==', '!=', '+', '-', '<', '<=', '>', '>=', '<<', '>>', "|", "&", "%", "+=", "-=", "&&", "||"],
+  binaryOperator: operatorList.flat(),
   unaryOperator: ['+', '-', '!'],
   number: /\d+(\.\d+)?/,
   string: /"([^"]*)"/,
@@ -64,31 +108,18 @@ const rules = {
 }
 
 
+
 const parse = comb`
   lexer ${ { rules, skip } }
 
   include = 'include' 'string'
 
   declare = 'id' ':' typeDefinition? '=' expression
-  declare -> ${x => {
-    const [ id, colon, typeDefinition, equals, expression ] = x;
-    let line = "";
-
-    // check if all caps then make it a constant
-    const constant = false;
-    if (constant) line += "const";
-
-    // if no type definition then infer
-    if (typeDefinition) line += typeDefinition;
-
-    line += id.value;
-    line += " = ";
-    line += expression;
-
-    return line;
-  }}
-
-  assign = 'id' '=' expression
+  declare -> ${
+    ([id,_,typeDefinition,__,expression])=>{
+      return {tag:"declare",key:id.value,type:typeDefinition,value:[expression]}
+    }
+  }
 
   type = 'type' 'id' '=' typeDefinition
 
@@ -117,44 +148,32 @@ const parse = comb`
   ifStatement = 'if' expression '{' statement* '}' ( 'else' 'if' expression '{' statement* '}')* ( 'else' '{' statement* '}')?
 
   forStatement = 'for' ('id' 'in' expression)? '{' statement* '}'
-  forStatement -> ${ x => {
-    if (x[1]) {
-      // need to get size of array
-      // const uuid = `variable_${Date.now()}`;
-      // return `for (int ${uuid} = 0; ${uuid} < (${x[1][2]}))`
-    } else {
-      return `while (true) {\n${x[3].map(x => `  ${x};\n`).join("")}}`
-    }
-
-  }}
 
   call = 'id' '(' (expression ',')* expression? ')'
-  call -> ${x => {
-    const [id, _0, args, opLastArg] = x;
-    return `${id.value}(${args.map(x => x[0]).join(", ")}${opLastArg ? `, ${opLastArg}` : ""})`
-  }}
 
   literal = 'number' | 'string' | 'boolean' | 'id'
-  literal -> ${x => {
-    if (x.type === "boolean" && x.value === "true") return "1";
-    if (x.type === "boolean" && x.value === "false") return "0"; 
-
-    return x.value
-  }}
+  literal -> ${
+    (x)=>{
+      if (x.type == 'number'){
+        return {tag:'atom',type:'number',value:[Number(x.value)]};
+      }else{
+        
+        let a= {tag:'atom',type:x.type=='id'?null:x.type,value:[x.value]};
+        if (x.type == 'id'){
+          a.key = x.value;
+        }
+        return a;
+      }
+    }
+  }
 
   ternary = 'if' expression 'then' expression 'else' expression
-  ternary -> ${x => {
-    return `((${x[1]}) ? (${x[3]}) : (${x[5]}))`
-  }}
+
 
   array = '[' (expression ',')* expression? ']'
-  array -> ${x => {
-    const [_0, values, opLastValue] = x;
-    return `{ ${values.map(x => x[0]).join(", ")}${opLastValue ? `, ${opLastValue}` : ""} }`
-  }}
 
-  partialExp = assign 
-    | declare 
+
+  partialExp = declare 
     | call 
     | literal
     | ternary
@@ -163,7 +182,18 @@ const parse = comb`
 
   biOp = partialExp 'binaryOperator' expression
 
+
   expression = biOp | ('(' expression ')') | partialExp
+  expression -> ${
+    (x)=>{
+      if (Array.isArray(x)){
+        let [a,b,c] = x;
+        x = applyPrecedence({tag:'binop',op:b.value,value:[a,c]});
+      }
+      return x;
+    }
+  }
+
 
   include* statement*
 `
@@ -286,26 +316,54 @@ fn add(x: int, y: int): int {
 }
 `
 
-const testSimple = `
-
-3
-true
-a
-"test string"
 
 
-if true then 4 else 65
+function inferTypes(tree,context=[[]]){
+  function search(x){
+    for (let i = 0; i < context.length; i++){
+      if (context[i][x]) return context[i][x];
+    }
+    throw 'undefined variable '+x;
+  }
 
-
-a := "cars"
-
-call(3, "cas")
-
-[ 4, 5, 6 ]
-
-for {
-  3
+  function infer(x){
+    console.log(',,,',x);
+    if (x.type) return x.type;
+    if (x.tag == 'binop'){
+      let a = infer(x.value[0]);
+      let b = infer(x.value[1]);
+      x.value[0].type = a;
+      x.value[1].type = b;
+      if (a == b){
+        x.type = a;
+        return a;
+      }else{
+        throw 'mismatched type '+a+' '+b;
+      }
+    }else if (x.tag == 'atom'){
+      if (x.type == null && x.key){
+        return (x.type = search(x.key));
+      }
+    }
+  }
+  for (let i = 0; i < tree.length; i++){
+    if (tree[i].type == null){
+      if (tree[i].tag == 'declare'){
+        console.log(tree[i])
+        tree[i].type = infer(tree[i].value[0]);
+        context[0][tree[i].key] = tree[i].type;
+      }
+    }
+    for (let j = 0; j < tree[i].value.length; j++){
+      inferTypes(tree[i].value[j],context);
+    }
+  }
 }
+
+const testSimple = `
+x := 3
+y := 4
+z := x + y + "hi"
 `
 
 console.time("tok")
@@ -317,8 +375,18 @@ const result = parse(testSimple);
 console.timeEnd("parse")
 
 
-console.log(toks);
 
-console.log(result[1].map(line => line + ";\n").join("")); // 4
+
+console.log(toks);
+console.log(result);
+
+inferTypes(result[1]);
+console.log(result);
+
+// console.log(result[1].map(line => line + ";\n").join("")); // 4
+
+
+
+
 
 </script>
