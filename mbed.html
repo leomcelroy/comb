@@ -24,29 +24,6 @@ const operators = operatorList.reduce( (acc, cur, i) => {
     return acc;
   }, {});
 
-const getPrecedence = (op) => operators[op];
-
-const convertBinaryOp = exp => {
-
-  if (!Array.op){
-    return exp;
-  }
-  const { op, value } = exp;
-  [first,second] = value;
-
-  return (Array.isArray(second) && getPrecedence(op) >= getPrecedence(second[1]))
-    ? {
-        tag:'binop',
-        op:second[1], 
-        value:[
-          applyPrecedence([ op, first, second[0] ]), 
-          second[2]
-        ]
-      }
-    : exp;
-}
-
-
 const rules = {
   // literals: [ 
   //   "[", 
@@ -267,12 +244,10 @@ console.time("parse")
 const result = parse(test);
 console.timeEnd("parse")
 
-console.log(toks);
-console.log(result);
-
 inferTypes(result[1]);
-console.log(result);
 
+console.log(toks);
+console.log(result[1]);
 
 function shuntingYard(operations, precedenceMap) {
   const outputQueue = [];
