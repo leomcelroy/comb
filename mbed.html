@@ -25,29 +25,6 @@ const operators = operatorList.reduce( (acc, cur, i) => {
   }, {});
 
 const rules = {
-  // literals: [ 
-  //   "[", 
-  //   "]", 
-  //   "{", 
-  //   "}", 
-  //   "(", 
-  //   ")", 
-  //   ",", 
-  //   "|", 
-  //   "then", 
-  //   ".", 
-  //   "if", 
-  //   "else",
-  //   "for",
-  //   "in",
-  //   "fn",
-  //   "break",
-  //   "continue",
-  //   "return",
-  //   "type",
-  //   "include",
-  //   ":",
-  // ],
   binaryOperator: operatorList.flat(),
   unaryOperator: ['+', '-', '!'],
   number: /\d+(\.\d+)?/,
@@ -94,11 +71,19 @@ const parse = comb`
     | "break"
     | ("return" expression?)
   
-  ifStatement = "if" expression block ( "else" "if" expression block )* ( "else" block)?
+  ifStatement = "if" expression block ("else" "if" expression block)* ("else" block)?
 
   forStatement = "for" ('id' "in" expression)? block
 
   call = 'id' "(" (expression ",")* expression? ")"
+  call -> ${x => {
+    const [callee, _, args, lastArg, __] = x;
+    return { 
+      type: "call", 
+      callee, 
+      args: lastArg ? [...args.map(x => x[0]), lastArg] : args,
+    }
+  }}
 
   literal = 'number' | 'string' | 'boolean' | 'id'
   literal -> ${
@@ -113,7 +98,8 @@ const parse = comb`
         
         let a= {
           tag:'atom',
-          type: x.type=='id' ? null : x.type,value:[x.value]
+          type: x.type=='id' ? null : x.type,
+          value:[x.value]
         };
 
         if (x.type == 'id') {
@@ -232,8 +218,7 @@ function inferTypes(tree,context=[[]]){
 }
 
 const test = `
-z := "car"
-z = "car" + z
+z := add(3, 5)
 `
 
 console.time("tok")
@@ -244,7 +229,7 @@ console.time("parse")
 const result = parse(test);
 console.timeEnd("parse")
 
-inferTypes(result[1]);
+// inferTypes(result[1]);
 
 console.log(toks);
 console.log(result[1]);

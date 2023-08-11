@@ -4,6 +4,30 @@ enum
 const
 do
 
+used
+
+"["
+"]"
+"{"
+"}"
+"("
+")"
+","
+"|"
+"then"
+"."
+"if"
+"else"
+"for"
+"in"
+"fn"
+"break"
+"continue"
+"return"
+"type"
+"include"
+":"
+
 possible types
 
   // primitive: [
