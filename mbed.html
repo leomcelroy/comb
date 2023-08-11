@@ -97,7 +97,7 @@ const parse = comb`
   type = "type" 'id' "=" typeDefinition
 
   typeDefinition = typeTerm ("|" typeTerm)*
-  typeTerm = arrayType | objectType | ('id' '.' 'id') | 'id' | 'string'
+  typeTerm = arrayType | objectType | ('id' "." 'id') | 'id' | 'string'
 
   arrayType = 'id' "[" 'number' "]"
 
@@ -209,6 +209,11 @@ function inferTypes(tree,context=[[]]){
 
   function infer(x){
     if (x.type) return x.type;
+
+    if (x.tag === "declare") {
+      return infer(x.value[0]);
+    }
+
     if (x.tag == 'binop'){
       let a = infer(x.value[0]);
       let b = infer(x.value[1]);
@@ -220,7 +225,7 @@ function inferTypes(tree,context=[[]]){
       }else{
         throw 'mismatched type '+a+' '+b;
       }
-    }else if (x.tag == 'atom'){
+    } else if (x.tag == 'atom'){
       if (x.type == null && x.key){
         return (x.type = search(x.key));
       }
@@ -229,7 +234,7 @@ function inferTypes(tree,context=[[]]){
 
   function inferOne(q){
     if (!q.type) {
-      q.type = infer(q.value[0]);
+      q.type = infer(q);
       if (q.tag == 'declare') {
         context[0][q.key] = q.type;
       }
@@ -250,7 +255,8 @@ function inferTypes(tree,context=[[]]){
 }
 
 const test = `
-3 * (4 + 3)
+z := "car"
+z = "car" + z
 `
 
 console.time("tok")
