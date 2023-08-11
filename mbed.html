@@ -26,7 +26,7 @@ const operators = operatorList.reduce( (acc, cur, i) => {
 
 const getPrecedence = (op) => operators[op];
 
-const applyPrecedence = exp => {
+const convertBinaryOp = exp => {
 
   if (!Array.op){
     return exp;
@@ -48,130 +48,112 @@ const applyPrecedence = exp => {
 
 
 const rules = {
-  "[": "[",
-  "]": "]",
-  "{": "{",
-  "}": "}",
-  "(": "(",
-  ")": ")",
-  ",": ",",
-  "|": "|",
-  "then": "then",
-  ".": ".",
-  "if": "if",
-  // "elif": "elif",
-  "else": "else",
-  "for": "for", 
-  "in": "in",
-  "fn": "fn",
-  "break": "break",
-  "continue": "continue",
-  // "do": "do",
-
-  // "enum": "enum",
-  // "const": "const",
-
-  "return": "return",
-  "type": "type",
-  "include": "include",
-  // ";": ";",
-  "=": "=",
-  ":": ":",
-  // "?": "?",
+  // literals: [ 
+  //   "[", 
+  //   "]", 
+  //   "{", 
+  //   "}", 
+  //   "(", 
+  //   ")", 
+  //   ",", 
+  //   "|", 
+  //   "then", 
+  //   ".", 
+  //   "if", 
+  //   "else",
+  //   "for",
+  //   "in",
+  //   "fn",
+  //   "break",
+  //   "continue",
+  //   "return",
+  //   "type",
+  //   "include",
+  //   ":",
+  // ],
   binaryOperator: operatorList.flat(),
   unaryOperator: ['+', '-', '!'],
   number: /\d+(\.\d+)?/,
   string: /"([^"]*)"/,
   boolean: ["true", "false"],
-  // primitive: [
-  //   "string", 
-  //   "boolean", 
-  //   "int8",
-  //   "int16",
-  //   "int32",
-  //   "int64",  
-  //   "uint8",
-  //   "uint16",
-  //   "uint32",
-  //   "uint64",
-  //   "float8",
-  //   "float16",
-  //   "float32",
-  //   "float64",
-  //   "byte",
-  //   "char",
-  //   "void",
-  // ],
   id: /[a-zA-Z_][a-zA-Z0-9_]*/,
   whitespace: /[ \t\r\n]*/,
   comment: /\/\/.*\n/
 }
 
 
-
 const parse = comb`
   lexer ${ { rules, skip } }
 
-  include = 'include' 'string'
+  include = "include" 'string'
 
-  declare = 'id' ':' typeDefinition? '=' expression
+  declare = 'id' ":" typeDefinition? "=" expression
   declare -> ${
     ([id,_,typeDefinition,__,expression])=>{
       return {tag:"declare",key:id.value,type:typeDefinition,value:[expression]}
     }
   }
 
-  type = 'type' 'id' '=' typeDefinition
+  type = "type" 'id' "=" typeDefinition
 
-  typeDefinition = typeTerm ('|' typeTerm)*
+  typeDefinition = typeTerm ("|" typeTerm)*
   typeTerm = arrayType | objectType | ('id' '.' 'id') | 'id' | 'string'
 
-  arrayType = 'id' '[' 'number' ']'
+  arrayType = 'id' "[" 'number' "]"
 
-  objectType = '{' (fieldDefinition ',')* fieldDefinition? '}'
-  fieldDefinition = 'id' ':' typeDefinition
+  objectType = "{" (fieldDefinition ",")* fieldDefinition? "}"
+  fieldDefinition = 'id' ":" typeDefinition
 
-  function = 'fn' 'id' '(' parameters ')' ':' typeDefinition block
-  parameters = (parameter ',')* parameter?
-  parameter = 'id' ':' typeDefinition
+  function = "fn" 'id' "(" parameters ")" (":" typeDefinition)? block
+  parameters = (parameter ",")* parameter?
+  parameter = 'id' ":" typeDefinition
 
   statement = type 
     | function 
     | forStatement
     | ifStatement 
     | expression
-    | 'continue'
-    | 'break'
-    | ('return' expression?)
+    | "continue"
+    | "break"
+    | ("return" expression?)
   
-  ifStatement = 'if' expression block ( 'else' 'if' expression block)* ( 'else' block)?
+  ifStatement = "if" expression block ( "else" "if" expression block )* ( "else" block)?
 
-  forStatement = 'for' ('id' 'in' expression)? block
+  forStatement = "for" ('id' "in" expression)? block
 
-  call = 'id' '(' (expression ',')* expression? ')'
+  call = 'id' "(" (expression ",")* expression? ")"
 
   literal = 'number' | 'string' | 'boolean' | 'id'
   literal -> ${
-    (x)=>{
-      if (x.type == 'number'){
-        return {tag:'atom',type:'number',value:[Number(x.value)]};
-      }else{
+    (x) => {
+      if (x.type == 'number') {
+        return {
+          tag: 'atom',
+          type: 'number',
+          value: [ Number(x.value) ]
+        };
+      } else {
         
-        let a= {tag:'atom',type:x.type=='id'?null:x.type,value:[x.value]};
-        if (x.type == 'id'){
+        let a= {
+          tag:'atom',
+          type: x.type=='id' ? null : x.type,value:[x.value]
+        };
+
+        if (x.type == 'id') {
           a.key = x.value;
         }
+
         return a;
       }
     }
   }
 
-  ternary = 'if' expression 'then' expression 'else' expression
+  ternary = "if" expression "then" expression "else" expression
 
 
-  array = '[' (expression ',')* expression? ']'
+  array = "[" (expression ",")* expression? "]"
 
-  block = '{' statement* '}'
+  block = "{" statement* "}"
   block -> ${
     (x)=>{
       return {
@@ -181,6 +163,9 @@ const parse = comb`
     }
   }
 
+  paren = "(" expression ")"
+  paren -> ${x => x[1]}
+
   partialExp = declare 
     | block
     | call 
@@ -188,146 +173,33 @@ const parse = comb`
     | ternary
     | array
     | 'unaryOperator' expression
+    | paren
 
-  biOp = partialExp 'binaryOperator' expression
-
-
-  expression = biOp | ('(' expression ')') | partialExp
-  expression -> ${
-    (x)=>{
-      if (Array.isArray(x)){
-        let [a,b,c] = x;
-        x = applyPrecedence({tag:'binop',op:b.value,value:[a,c]});
-      }
-      return x;
+  expression = partialExp ( 'binaryOperator' partialExp )*
+  expression -> ${(x) => {
+    const [partial, binaryOps] = x;
+    if (binaryOps) {
+      return shuntingYard([partial, ...binaryOps.flat(1)], operators)
+    } else {
+      return partial
     }
-  }
-
+  }}
 
   include* statement*
 `
 
-const example = String.raw`
-include "Servo.h"
-
-const SPU = 400
-const PIN_SERVO = 3
-
-test = 1
-
-test = ["a", "b", "c"]
-
-
-type option = "c" | "d"
-
-type optionArr = option[4]
-
-type car = {
-  door: number,
-  color: string
-}
-
-fn add(x: int, y: int): int {
-  for {
-    if x < 10 { break }
-    else { 
-      x += 1 
-      continue
-    }
-  }
-
-  return x+y
-}
-
-for {
-  if x < 10 { break }
-  else { 
-    x += 1 
-    continue
-  }
-}
-
-for {
-  if x < 10 { break }
-  else { 
-    x += 1 
-    continue
-  }
-}
-`
-
 const tokenizer = makeLexer({ rules, skip });
 
-const test = String.raw`
-include "servo.h"
+function inferTypes(tree,context=[[]]){
 
-SPU :int = 400
-PIN_SERVO := 3
-
-test = 1
-
-type arr = orange[3]
-
-type house = {
-  door: "number"
-}
-
-if x < 89 {
-
-} else {
-  65
-}
-
-if x < 89 {
-
-} else if true {
-  65
-}
-
-if 78 then 67 else 56
-
-for x in 32 {
-
-}
-
-5 - 9 + 7
-
-fn add(x: number, y: number): number { }
-
-SPU := 400
-PIN_SERVO := 3
-
-test := 1
-
-test = ["a", "b", "c"]
-
-type option = "c" | "d"
-
-type optionArr = option[4]
-
-type car = {
-  door: number,
-  color: string
-}
-
-
-fn add(x: int, y: int): int {
-
-  for {
-    if x < 10 { break }
-    else { 
-      x += 1 
-      continue
-    }
+  if (!Array.isArray(tree)){
+    return inferOne(tree);
   }
 
-  return x+y
-}
-`
+  for (let i = 0; i < tree.length; i++){
+    inferOne(tree[i]);
+  }
 
-
-
-function inferTypes(tree,context=[[]]){
   function search(x){
     for (let i = 0; i < context.length; i++){
       if (context[i][x]) return context[i][x];
@@ -342,7 +214,7 @@ function inferTypes(tree,context=[[]]){
       let b = infer(x.value[1]);
       x.value[0].type = a;
       x.value[1].type = b;
-      if (a == b){
+      if (a === b){
         x.type = a;
         return a;
       }else{
@@ -354,55 +226,40 @@ function inferTypes(tree,context=[[]]){
       }
     }
   }
+
   function inferOne(q){
-    if (q.type == null){
-      if (q.tag == 'declare'){
-        q.type = infer(q.value[0]);
+    if (!q.type) {
+      q.type = infer(q.value[0]);
+      if (q.tag == 'declare') {
         context[0][q.key] = q.type;
       }
     }
+
     if (q.tag == 'block'){
       context.unshift([]);
       for (let j = 0; j < q.value.length; j++){
         inferTypes(q.value[j],context);
       }
       context.shift();
-    }else if (q.tag != 'atom'){
+    } else if (q.tag != 'atom'){
       for (let j = 0; j < q.value.length; j++){
         inferTypes(q.value[j],context);
       }
     }
   }
-
-  if (!Array.isArray(tree)){
-    return inferOne(tree);
-  }
-  for (let i = 0; i < tree.length; i++){
-    inferOne(tree[i]);
-  }
 }
 
-const testSimple = `
-x := 3
-y := 4
-s := "hello"
-t := 6
-4+9
-{
-  z := x + y
-  t = "world "+s
-}
+const test = `
+3 * (4 + 3)
 `
 
 console.time("tok")
-const toks = tokenizer(testSimple);
+const toks = tokenizer(test);
 console.timeEnd("tok")
 
 console.time("parse")
-const result = parse(testSimple);
+const result = parse(test);
 console.timeEnd("parse")
-
-
 
 console.log(toks);
 console.log(result);
@@ -410,9 +267,46 @@ console.log(result);
 inferTypes(result[1]);
 console.log(result);
 
-// console.log(result[1].map(line => line + ";\n").join("")); // 4
 
+function shuntingYard(operations, precedenceMap) {
+  const outputQueue = [];
+  const operatorStack = [];
 
+  for (const item of operations) {
+    if (item.type === "binaryOperator") {
+      const op = item.value;
+      while (
+        operatorStack.length > 0 &&
+        precedenceMap[op] <= precedenceMap[operatorStack.at(-1).value]
+      ) {
+        outputQueue.push(operatorStack.pop());
+      }
+      operatorStack.push(item);
+    } else {
+      outputQueue.push(item);
+    }
+  }
+
+  while (operatorStack.length > 0) {
+    outputQueue.push(operatorStack.pop());
+  }
+
+  const operandStack = [];
+
+  for (const item of outputQueue) {
+    if (item.type === "binaryOperator") {
+      const right = operandStack.pop();
+      const left = operandStack.pop();
+
+      operandStack.push({ tag:'binop', op:item.value, value:[ left, right ] });
+      // operandStack.push({ operator: item.value, left, right });
+    } else {
+      operandStack.push(item);
+    }
+  }
+
+  return operandStack[0];
+}
 
 
 

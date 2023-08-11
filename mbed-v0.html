@@ -1,0 +1,419 @@
+<script type="module">
+import { comb, makeLexer } from "./comb.js";
+
+const skip = [ "whitespace", "comment" ];
+
+
+const operatorList = [
+    ['+=','-=','*=','/=','%=','>>=','<<=','&=','|=','^=','='],
+    ["||"],
+    ["&&"],
+    ["|"],
+    ["^"],
+    ["&"],
+    ['==','!='],
+    ['<','>','<=','>='],
+    ['<<','>>'],
+    ['+','-'],
+    ['*','%','/'],
+  ];
+
+const operators = operatorList.reduce( (acc, cur, i) => {
+    cur.forEach(op => acc[op] = i);
+
+    return acc;
+  }, {});
+
+const getPrecedence = (op) => operators[op];
+
+const applyPrecedence = exp => {
+
+  if (!Array.op){
+    return exp;
+  }
+  const { op, value } = exp;
+  [first,second] = value;
+
+  return (Array.isArray(second) && getPrecedence(op) >= getPrecedence(second[1]))
+    ? {
+        tag:'binop',
+        op:second[1], 
+        value:[
+          applyPrecedence([ op, first, second[0] ]), 
+          second[2]
+        ]
+      }
+    : exp;
+}
+
+
+const rules = {
+  "[": "[",
+  "]": "]",
+  "{": "{",
+  "}": "}",
+  "(": "(",
+  ")": ")",
+  ",": ",",
+  "|": "|",
+  "then": "then",
+  ".": ".",
+  "if": "if",
+  // "elif": "elif",
+  "else": "else",
+  "for": "for", 
+  "in": "in",
+  "fn": "fn",
+  "break": "break",
+  "continue": "continue",
+  // "do": "do",
+
+  // "enum": "enum",
+  // "const": "const",
+
+  "return": "return",
+  "type": "type",
+  "include": "include",
+  // ";": ";",
+  // "=": "=",
+  ":": ":",
+  // "?": "?",
+  binaryOperator: operatorList.flat(),
+  unaryOperator: ['+', '-', '!'],
+  number: /\d+(\.\d+)?/,
+  string: /"([^"]*)"/,
+  boolean: ["true", "false"],
+  // primitive: [
+  //   "string", 
+  //   "boolean", 
+  //   "int8",
+  //   "int16",
+  //   "int32",
+  //   "int64",  
+  //   "uint8",
+  //   "uint16",
+  //   "uint32",
+  //   "uint64",
+  //   "float8",
+  //   "float16",
+  //   "float32",
+  //   "float64",
+  //   "byte",
+  //   "char",
+  //   "void",
+  // ],
+  id: /[a-zA-Z_][a-zA-Z0-9_]*/,
+  whitespace: /[ \t\r\n]*/,
+  comment: /\/\/.*\n/
+}
+
+
+
+const parse = comb`
+  lexer ${ { rules, skip } }
+
+  include = 'include' 'string'
+
+  declare = 'id' ':' typeDefinition? "=" expression
+  declare -> ${
+    ([id,_,typeDefinition,__,expression])=>{
+      return {tag:"declare",key:id.value,type:typeDefinition,value:[expression]}
+    }
+  }
+
+  type = 'type' 'id' '=' typeDefinition
+
+  typeDefinition = typeTerm ('|' typeTerm)*
+  typeTerm = arrayType | objectType | ('id' '.' 'id') | 'id' | 'string'
+
+  arrayType = 'id' '[' 'number' ']'
+
+  objectType = '{' (fieldDefinition ',')* fieldDefinition? '}'
+  fieldDefinition = 'id' ':' typeDefinition
+
+  function = 'fn' 'id' '(' parameters ')' ':' typeDefinition block
+  parameters = (parameter ',')* parameter?
+  parameter = 'id' ':' typeDefinition
+
+  statement = type 
+    | function 
+    | forStatement
+    | ifStatement 
+    | expression
+    | 'continue'
+    | 'break'
+    | ('return' expression?)
+  
+  ifStatement = 'if' expression block ( 'else' 'if' expression block)* ( 'else' block)?
+
+  forStatement = 'for' ('id' 'in' expression)? block
+
+  call = 'id' '(' (expression ',')* expression? ')'
+
+  literal = 'number' | 'string' | 'boolean' | 'id'
+  literal -> ${
+    (x)=>{
+      if (x.type == 'number'){
+        return {tag:'atom',type:'number',value:[Number(x.value)]};
+      }else{
+        
+        let a= {tag:'atom',type:x.type=='id'?null:x.type,value:[x.value]};
+        if (x.type == 'id'){
+          a.key = x.value;
+        }
+        return a;
+      }
+    }
+  }
+
+  ternary = 'if' expression 'then' expression 'else' expression
+
+
+  array = '[' (expression ',')* expression? ']'
+
+  block = '{' statement* '}'
+  block -> ${
+    (x)=>{
+      return {
+        tag:'block',
+        value:x[1],
+      }
+    }
+  }
+
+  partialExp = declare 
+    | block
+    | call 
+    | literal
+    | ternary
+    | array
+    | 'unaryOperator' expression
+
+  biOp = partialExp 'binaryOperator' expression
+
+
+  expression = biOp | ('(' expression ')') | partialExp
+  expression -> ${
+    (x)=>{
+      if (Array.isArray(x)){
+        let [a,b,c] = x;
+        x = applyPrecedence({tag:'binop',op:b.value,value:[a,c]});
+      }
+      return x;
+    }
+  }
+
+
+  include* statement*
+`
+
+const example = String.raw`
+include "Servo.h"
+
+const SPU = 400
+const PIN_SERVO = 3
+
+test = 1
+
+test = ["a", "b", "c"]
+
+
+type option = "c" | "d"
+
+type optionArr = option[4]
+
+type car = {
+  door: number,
+  color: string
+}
+
+fn add(x: int, y: int): int {
+  for {
+    if x < 10 { break }
+    else { 
+      x += 1 
+      continue
+    }
+  }
+
+  return x+y
+}
+
+for {
+  if x < 10 { break }
+  else { 
+    x += 1 
+    continue
+  }
+}
+
+for {
+  if x < 10 { break }
+  else { 
+    x += 1 
+    continue
+  }
+}
+`
+
+const tokenizer = makeLexer({ rules, skip });
+
+const test = String.raw`
+include "servo.h"
+
+SPU :int = 400
+PIN_SERVO := 3
+
+test = 1
+
+type arr = orange[3]
+
+type house = {
+  door: "number"
+}
+
+if x < 89 {
+
+} else {
+  65
+}
+
+if x < 89 {
+
+} else if true {
+  65
+}
+
+if 78 then 67 else 56
+
+for x in 32 {
+
+}
+
+5 - 9 + 7
+
+fn add(x: number, y: number): number { }
+
+SPU := 400
+PIN_SERVO := 3
+
+test := 1
+
+test = ["a", "b", "c"]
+
+type option = "c" | "d"
+
+type optionArr = option[4]
+
+type car = {
+  door: number,
+  color: string
+}
+
+
+fn add(x: int, y: int): int {
+
+  for {
+    if x < 10 { break }
+    else { 
+      x += 1 
+      continue
+    }
+  }
+
+  return x+y
+}
+`
+
+
+
+function inferTypes(tree,context=[[]]){
+  function search(x){
+    for (let i = 0; i < context.length; i++){
+      if (context[i][x]) return context[i][x];
+    }
+    throw 'undefined variable '+x;
+  }
+
+  function infer(x){
+    if (x.type) return x.type;
+    if (x.tag == 'binop'){
+      let a = infer(x.value[0]);
+      let b = infer(x.value[1]);
+      x.value[0].type = a;
+      x.value[1].type = b;
+      if (a == b){
+        x.type = a;
+        return a;
+      }else{
+        throw 'mismatched type '+a+' '+b;
+      }
+    }else if (x.tag == 'atom'){
+      if (x.type == null && x.key){
+        return (x.type = search(x.key));
+      }
+    }
+  }
+  function inferOne(q){
+    if (q.type == null){
+      if (q.tag == 'declare'){
+        q.type = infer(q.value[0]);
+        context[0][q.key] = q.type;
+      }
+    }
+    if (q.tag == 'block'){
+      context.unshift([]);
+      for (let j = 0; j < q.value.length; j++){
+        inferTypes(q.value[j],context);
+      }
+      context.shift();
+    }else if (q.tag != 'atom'){
+      for (let j = 0; j < q.value.length; j++){
+        inferTypes(q.value[j],context);
+      }
+    }
+  }
+
+  if (!Array.isArray(tree)){
+    return inferOne(tree);
+  }
+  for (let i = 0; i < tree.length; i++){
+    inferOne(tree[i]);
+  }
+}
+
+const testSimple = `
+x := 3
+y := 4
+s := "hello"
+t := 6
+4+9
+{
+  z := x + y
+  t = "world "+s
+}
+`
+
+console.time("tok")
+const toks = tokenizer(testSimple);
+console.timeEnd("tok")
+
+console.time("parse")
+const result = parse(testSimple);
+console.timeEnd("parse")
+
+
+
+console.log(toks);
+console.log(result);
+
+inferTypes(result[1]);
+console.log(result);
+
+// console.log(result[1].map(line => line + ";\n").join("")); // 4
+
+
+
+
+
+</script>
