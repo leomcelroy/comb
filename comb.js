@@ -144,6 +144,7 @@ const comb = (strs, ...vals) => {
     symbol: /[a-zA-Z_]+/,
     comment: /\/\/.*\n/,
     token: /'.*?'/,
+    literal: /"([^"]*)"/,
     ...literals,
   }
 
@@ -152,9 +153,10 @@ const comb = (strs, ...vals) => {
   const toks = tokenize(result);
 
   const token = or(["token"], x => ({ type: "token", value: x.value.slice(1, -1), index: x.index}))
+  const literal = or(["literal"], x => ({ type: "literal", value: x.value.slice(1, -1), index: x.index}))
 
   const andClause = s => plus(and([
-    or([paren, "symbol", token]),
+    or([paren, "symbol", token, literal]),
     opt(or(["*", "+", "?"])),
   ], x => x[1] ? [x[1].value, x[0]] : x[0]), x => x.length > 1 ? ["and", ...x] : x[0])(s);
 
@@ -246,6 +248,10 @@ const comb = (strs, ...vals) => {
       return (s) => $stored[name](s);
     } else if (node.type === "token") {
       return convert(node.value);
+    } else if (node.type === "literal") {
+      return s => s[0] && (s[0].value === node.value)
+        ? [ s[0], s.slice(1) ] 
+        : null
     } else if (node.type === "lexer") {
       let val = refs[node.value.value];
       if (typeof val === "object") val = makeLexer(val);
