@@ -106,15 +106,7 @@ const parse = comb`
 
   forStatement = "for" ('id' "in" expression)? block
 
-  call = 'id' '(' (expression ",")* expression? ')'
-  call -> ${x => {
-    const [callee, _, args, lastArg, __] = x;
-    return { 
-      type: "call", 
-      callee, 
-      args: lastArg ? [...args.map(x => x[0]), lastArg] : args,
-    }
-  }}
+  call = ( 'id' | '(' expression ')' ) ('(' (expression ",")* expression? ')')+
 
   literal = 'number' | 'string' | 'boolean' | 'id'
   literal -> ${
@@ -147,6 +139,9 @@ const parse = comb`
 
   array = '[' (expression ",")* expression? ']'
 
+
+  subscript = ( 'id' | '(' expression ')' ) ('[' expression ']')+
+
   block = '{' statement* '}'
   block -> ${
     (x)=>{
@@ -161,6 +156,7 @@ const parse = comb`
   paren -> ${x => x[1]}
 
   partialExp = declare 
+    | subscript
     | block
     | call 
     | ifStatement
@@ -378,6 +374,9 @@ if true {
   z = 4
 }
 
+z((z[3])[3])(t, 3, 4)
+
+
 `;
 
 console.time("tok")
@@ -436,7 +435,5 @@ function shuntingYard(operations, precedenceMap) {
 
   return operandStack[0];
 }
-
-
 
 </script>
