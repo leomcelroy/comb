@@ -244,7 +244,6 @@ const comb = (strs, ...vals) => {
         : node.map(evaluate);
     } else if (node.type === "symbol") {
       const name = node.value;
-
       return (s) => $stored[name](s);
     } else if (node.type === "token") {
       return convert(node.value);
