@@ -64,14 +64,23 @@ const parse = comb`
 
   statement = type 
     | function 
-    | forStatement
-    | ifStatement 
+    | forStatement 
     | expression
     | "continue"
     | "break"
     | ("return" expression?)
   
-  ifStatement = "if" expression block ("else" "if" expression block)* ("else" block)?
+  ifStatement = "if" expression block ("else" (block | ifStatement))?
+  ifStatement -> ${x => {
+    const [_, cond, block1, elseStatement] = x;
+    if (elseStatement === null) {
+      return { tag: "if", value: [ cond, block1 ]}
+    } else {
+      const [_, block2] = elseStatement;
+      return { tag: "if", value: [ cond, block1, block2 ]}
+    }
+  }}
+
 
   forStatement = "for" ('id' "in" expression)? block
 
@@ -111,7 +120,7 @@ const parse = comb`
     }
   }
 
-  ternary = "if" expression "then" expression "else" expression
+
 
 
   array = "[" (expression ",")* expression? "]"
@@ -132,8 +141,8 @@ const parse = comb`
   partialExp = declare 
     | block
     | call 
+    | ifStatement
     | literal
-    | ternary
     | array
     | 'unaryOperator' expression
     | paren
@@ -150,6 +159,13 @@ const parse = comb`
 
   include* statement*
 `
+
+  // ternary = "if" expression "then" expression "else" expression
+  // ternary -> ${x => {
+  //   const [_, cond, __, exp1, ___, exp2 ] = x;
+
+  //   return { tag: "ternary", value: [ cond, exp1, exp2 ] }
+  // }}
 
 const tokenizer = makeLexer({ rules, skip });
 
@@ -172,6 +188,10 @@ function inferTypes(tree,context=[[]]){
 
   function infer(x){
     if (x.type) return x.type;
+    if (x.tag == "block"){
+      inferOne(x);
+      return x.type;
+    }
 
     if (x.tag === "declare") {
       return infer(x.value[0]);
@@ -188,6 +208,20 @@ function inferTypes(tree,context=[[]]){
       }else{
         throw 'mismatched type '+a+' '+b;
       }
+    } else if (x.tag == 'if') {
+      // console.log("------")
+      // console.log(x.value[1],x.value[2],x.value[1].type,x.value[2].type);
+      // let cond = infer(x.value[0]);
+      let trueClause = infer(x.value[1]);
+      let falseClause = x.value.length > 2 ? infer(x.value[2]) : trueClause;
+      // console.log(x.value[1],x.value[2],x.value[1].type,x.value[2].type);
+
+      if (trueClause === falseClause) {
+        x.type = trueClause;
+        return trueClause;
+      } else {
+        throw 'mismatched type '+ trueClause+' '+falseClause;
+      }
     } else if (x.tag == 'atom'){
       if (x.type == null && x.key){
         return (x.type = search(x.key));
@@ -196,12 +230,7 @@ function inferTypes(tree,context=[[]]){
   }
 
   function inferOne(q){
-    if (!q.type) {
-      q.type = infer(q);
-      if (q.tag == 'declare') {
-        context[0][q.key] = q.type;
-      }
-    }
+
 
     if (q.tag == 'block'){
       context.unshift([]);
@@ -209,6 +238,12 @@ function inferTypes(tree,context=[[]]){
         inferTypes(q.value[j],context);
       }
       context.shift();
+      q.type = infer(q.value.at(-1));
+    } else if (!q.type) {
+      q.type = infer(q);
+      if (q.tag == 'declare') {
+        context[0][q.key] = q.type;
+      }
     } else if (q.tag != 'atom'){
       for (let j = 0; j < q.value.length; j++){
         inferTypes(q.value[j],context);
@@ -218,7 +253,37 @@ function inferTypes(tree,context=[[]]){
 }
 
 const test = `
-z := add(3, 5)
+x := 3
+y := 4
+s := "hello"
+t := ""
+
+if true {
+  4
+} else {
+  5
+}
+
+if x+y == 6 {
+  x += 1
+} else if false {
+  x -= 1
+} else {
+  x -= 1
+}
+
+tern := if true {
+  "orange"
+} else {
+  "red"
+}
+
+4+9
+
+{
+  z := x + y
+  t = "world "+s
+}
 `
 
 console.time("tok")
@@ -229,7 +294,7 @@ console.time("parse")
 const result = parse(test);
 console.timeEnd("parse")
 
-// inferTypes(result[1]);
+inferTypes(result[1]);
 
 console.log(toks);
 console.log(result[1]);
