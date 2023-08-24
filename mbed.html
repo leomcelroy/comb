@@ -41,6 +41,12 @@ const operators = operatorList.reduce( (acc, cur, i) => {
   }, {});
 
 const rules = {
+  "{": "{",
+  "}": "}",
+  "(": "(",
+  ")": ")",
+  "[": "[",
+  "]": "]",
   binaryOperator: operatorList.flat(),
   unaryOperator: ['+', '-', '!'],
   number: /\d+(\.\d+)?/,
@@ -69,12 +75,12 @@ const parse = comb`
   typeDefinition = typeTerm ("|" typeTerm)*
   typeTerm = arrayType | objectType | ('id' "." 'id') | 'id' | 'string'
 
-  arrayType = 'id' "[" 'number' "]"
+  arrayType = 'id' '[' 'number' ']'
 
-  objectType = "{" (fieldDefinition ",")* fieldDefinition? "}"
+  objectType = '{' (fieldDefinition ",")* fieldDefinition? '}'
   fieldDefinition = 'id' ":" typeDefinition
 
-  function = "fn" 'id' "(" parameters ")" (":" typeDefinition)? block
+  function = "fn" 'id' '(' parameters ')' (":" typeDefinition)? block
   parameters = (parameter ",")* parameter?
   parameter = 'id' ":" typeDefinition
 
@@ -100,7 +106,7 @@ const parse = comb`
 
   forStatement = "for" ('id' "in" expression)? block
 
-  call = 'id' "(" (expression ",")* expression? ")"
+  call = 'id' '(' (expression ",")* expression? ')'
   call -> ${x => {
     const [callee, _, args, lastArg, __] = x;
     return { 
@@ -139,9 +145,9 @@ const parse = comb`
 
 
 
-  array = "[" (expression ",")* expression? "]"
+  array = '[' (expression ",")* expression? ']'
 
-  block = "{" statement* "}"
+  block = '{' statement* '}'
   block -> ${
     (x)=>{
       return {
@@ -151,7 +157,7 @@ const parse = comb`
     }
   }
 
-  paren = "(" expression ")"
+  paren = '(' expression ')'
   paren -> ${x => x[1]}
 
   partialExp = declare 
