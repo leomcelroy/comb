@@ -20,10 +20,17 @@ const operatorList = [
 
 let operatorUpcast = ['f32','u32','i32','u16','i16','u8','i8'];
 let arithOperators = [
-  '+=','-=','*=','/=','%=','=',
   '+','-',
   '*','%','/',
 ]
+let arithAssignOperators = [
+  '+=','-=','*=','/=','%=','=',
+]
+let bitAssignOperators = [
+  '>>=','<<=','&=','|=','^=','=',
+]
+
+
 let CTypeMap = {
   'f32':'float',
   'u32':'uint32_t',
@@ -203,11 +210,20 @@ function inferTypes(tree,context=[[]]){
   }
 
   function upcastable(op,a,b){
-    if (!arithOperators.includes(op)){
-      return undefined;
+    if (arithOperators.includes(op)){
+      let idx = Math.min(operatorUpcast.indexOf(a),operatorUpcast.indexOf(b));
+      return operatorUpcast[idx];
+    }else if (arithAssignOperators.includes(op)){
+      if (operatorUpcast.indexOf(a)>-1 && operatorUpcast.indexOf(b)>-1){
+        return a;
+      }
+    }else if (binAssignOperators.includes(op)){
+      if (operatorUpcast.indexOf(a)>0 && operatorUpcast.indexOf(b)>0){
+        return a;
+      }
     }
-    let idx = Math.min(operatorUpcast.indexOf(a),operatorUpcast.indexOf(b));
-    return operatorUpcast[idx];
+    return undefined;
+    
   }
 
   function infer(x){
@@ -358,7 +374,7 @@ const test = `
 x := 0.1
 y := 2
 z := x + y
-z = 3
+z += 3
 a := if 1+2 {3} else {4}
 if true {
   4
@@ -367,11 +383,6 @@ if true {
 } else {
   6
 }
-
-{
-  z = 4
-}
-
 `;
 
 console.time("tok")
