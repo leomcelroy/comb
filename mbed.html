@@ -18,6 +18,22 @@ const operatorList = [
     ['*','%','/'],
   ];
 
+let operatorUpcast = ['f32','u32','i32','u16','i16','u8','i8'];
+let arithOperators = [
+  '+=','-=','*=','/=','%=','=',
+  '+','-',
+  '*','%','/',
+]
+let CTypeMap = {
+  'f32':'float',
+  'u32':'uint32_t',
+  'i32':'int32_t',
+  'u16':'uint16_t',
+  'i16':'int16_t',
+  'u8':'uint8_t',
+  'i8':'int8_t'
+}
+
 const operators = operatorList.reduce( (acc, cur, i) => {
     cur.forEach(op => acc[op] = i);
 
@@ -100,7 +116,7 @@ const parse = comb`
       if (x.type == 'number') {
         return {
           tag: 'atom',
-          type: 'number',
+          type: x.value.includes('.') ? 'f32' : 'i32',
           value: [ Number(x.value) ]
         };
       } else {
@@ -186,6 +202,14 @@ function inferTypes(tree,context=[[]]){
     throw 'undefined variable '+x;
   }
 
+  function upcastable(op,a,b){
+    if (!arithOperators.includes(op)){
+      return undefined;
+    }
+    let idx = Math.min(operatorUpcast.indexOf(a),operatorUpcast.indexOf(b));
+    return operatorUpcast[idx];
+  }
+
   function infer(x){
     if (x.type) return x.type;
     if (x.tag == "block"){
@@ -206,7 +230,10 @@ function inferTypes(tree,context=[[]]){
         x.type = a;
         return a;
       }else{
-        throw 'mismatched type '+a+' '+b;
+        if (!(x.type = upcastable(x.op,a,b))){
+          throw 'mismatched type '+a+' '+b;
+        }
+        return x.type;
       }
     } else if (x.tag == 'if') {
       // console.log("------")
@@ -220,7 +247,9 @@ function inferTypes(tree,context=[[]]){
         x.type = trueClause;
         return trueClause;
       } else {
-        throw 'mismatched type '+ trueClause+' '+falseClause;
+        // if (!(x.type = upcastable(,trueClause,falseClause))){
+        throw 'mismatched type '+trueClause+' '+falseClause;
+        // }
       }
     } else if (x.tag == 'atom'){
       if (x.type == null && x.key){
@@ -252,39 +281,98 @@ function inferTypes(tree,context=[[]]){
   }
 }
 
-const test = `
-x := 3
-y := 4
-s := "hello"
-t := ""
+function generateC(tree,inlineBlocks=false){
+  
+  let o = ``;
+  if (Array.isArray(tree)){
+    for (let i = 0; i < tree.length; i++){
+      o += generateC(tree[i],inlineBlocks);
+      if (!inlineBlocks){
+        o += ';';
+        if (i != tree.length-1){
+          o += '\n';
+        }
+      }
+    }
+  }else if (tree.tag == 'atom'){
+    o += tree.value[0];
+  }else if (tree.tag == 'declare'){
+    o += `${CTypeMap[tree.type]??tree.type} ${tree.key} = ${generateC(tree.value[0],true)}`;
+  }else if (tree.tag == 'binop'){
+    o += `((${generateC(tree.value[0])}) ${tree.op} (${generateC(tree.value[1],tree.op=='=')}))`;
+  }else if (tree.tag == 'if'){
+    if (inlineBlocks){
+      o += `(${generateC(tree.value[0])}) ? (${generateC(tree.value[1],true)}) : (${generateC(tree.value[2],true)})`;
+    }else if (tree.value[2]){
+      o += `if (${generateC(tree.value[0],true)}) {${generateC(tree.value[1])}} else {${generateC(tree.value[2])}}`;
+    }else{
+      o += `if (${generateC(tree.value[0],true)}) {${generateC(tree.value[1])}}`;
+    }
+  }else if (tree.tag == 'block'){
+    let oo = generateC(tree.value,inlineBlocks)
+    if (inlineBlocks){
+      o += oo;
+    }else{
+      oo = oo.split('\n').map(x=>'  '+x).join('\n');
+      o += '\n'+oo+'\n';
+    }
+  }
+  return o;
+}
 
+// const test = `
+// x := 3
+// y := 4
+// s := "hello"
+// t := ""
+
+// if true {
+//   4
+// } else {
+//   5
+// }
+
+// if x+y == 6 {
+//   x += 1
+// } else if false {
+//   x -= 1
+// } else {
+//   x -= 1
+// }
+
+// tern := if true {
+//   "orange"
+// } else {
+//   "red"
+// }
+
+// 4+9
+
+// {
+//   z := x + y
+//   t = "world "+s
+// }
+// `
+
+const test = `
+x := 0.1
+y := 2
+z := x + y
+z = 3
+a := if 1+2 {3} else {4}
 if true {
   4
-} else {
-  5
-}
-
-if x+y == 6 {
-  x += 1
 } else if false {
-  x -= 1
+  5
 } else {
-  x -= 1
+  6
 }
-
-tern := if true {
-  "orange"
-} else {
-  "red"
-}
-
-4+9
 
 {
-  z := x + y
-  t = "world "+s
+  z = 4
 }
-`
+
+`;
 
 console.time("tok")
 const toks = tokenizer(test);
@@ -298,6 +386,10 @@ inferTypes(result[1]);
 
 console.log(toks);
 console.log(result[1]);
+
+
+let c = generateC(result[1]);
+console.log(c);
 
 function shuntingYard(operations, precedenceMap) {
   const outputQueue = [];
